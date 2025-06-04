@@ -1,7 +1,9 @@
 # Project -  Social Listening for Public Outrage
 Team - Shreya Shukla, Ram Potham, Adeniyi Joseph, Diana Rivera
 
-Code for Compassion London 2025
+### Code for Compassion London 2025 Hackathon
+
+https://forum.effectivealtruism.org/posts/Duu5JQLuJqntK4gyi/code4compassion-a-hackathon-transforming-animal-advocacy
 
 Project Idea - Use natural language processing (NLP) to monitor media, social feeds, and news for moments of public outrage about factory farming (e.g., scandals, environmental damage, disease outbreaks) and send real-time alerts to the comms team to amplify.
 
