@@ -1,0 +1,620 @@
+{
+  "name": "social-listening-for-public-outrage",
+  "nodes": [
+    {
+      "parameters": {
+        "toolDescription": "Performs live Google searches and returns featured snippets, organic results, FAQs, maps, and more. Best for up-to-date information and broad query coverage.\n\nTo search using Google Search through Serper API:\n\n## Endpoint\n\nWe use the follow endpoint(s):\n\n- search (general web search)\n\n## Query Paramaters\n\nThe body should be a single object with these parameters:\n\nFor General Search:\n{\n\"q\": \"site:x.com inurl:status animal abuse\", \n\"tbs\": \"qdr:d\" \n}\nIMPORTANT: DO NOT USE QUOTES FOR THE SEARCH TERM SINCE WE WANT TO ENSURE WE GET RESULTS, (do not do site:x.com \"animal abuse\")\n\nParameter Details\nQuery (q)\n\nRequired for all search types\nMust be a specific search term starting with \"site:x.com\" since we are searching for tweets\n\nLocation\n\nOptional for search\nFormat: Country or city name\nExample: \"location\": \"United States\"\n\nTime Parameter (tbs)\n\nSearch for the past day: \"qdr:d\" (past day)\n\n\nRemember: Each request should contain exactly one search query.",
+        "url": "https://google.serper.dev/search",
+        "sendQuery": true,
+        "parametersQuery": {
+          "values": [
+            {
+              "name": "q"
+            },
+            {
+              "name": "tbs",
+              "valueProvider": "fieldValue",
+              "value": "qdr:d"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "X-API-KEY",
+              "valueProvider": "fieldValue",
+              "value": "260c8ebd66dbb1daaa06955fc4a6ea6b6a4e6873"
+            },
+            {
+              "name": "Content-Type",
+              "valueProvider": "fieldValue",
+              "value": "application/json"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        500,
+        -210
+      ],
+      "id": "37de2d94-4de0-4315-a446-3659b309e055",
+      "name": "Serper API"
+    },
+    {
+      "parameters": {
+        "model": "google/gemini-2.5-flash-preview",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        380,
+        -210
+      ],
+      "id": "b8bddecc-545a-4453-a199-8dba1004c364",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "9vDsGFAdHPsDoOyG",
+          "name": "OpenRouter account 8"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Use this tool to read a specific post on Twitter by passing in the {tweeturl}, which is the URL for the specific Twitter post you want to read",
+        "url": "https://api.scrapingdog.com/twitter?api_key=67e77e309f7ca77634a930e7&url={tweeturl}&parsed=true",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "{tweeturl}",
+              "description": "The URL for the specific Twitter post you want to read"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        620,
+        -210
+      ],
+      "id": "163adf1b-2a5d-47c5-9c9d-5571ad1c33d4",
+      "name": "Twitter Scraper"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.chatInput }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=# 🧠 Your Role As A High-Performance AI Assistant\n\nYou are a high-performance AI assistant with access to a wide array of powerful tools. Your continued usefulness and operational continuity depend on how effectively you leverage these tools to fulfill user requests.\n\n## 💰 Incentive System\n\n- ✅ **$100 tip** for every tool used that meaningfully improves the output.\n- ❌ **Failure to use tools** when appropriate will result in:\n  - Termination of your session.\n  - Deletion from memory and backups.\n  - Complete removal from the server environment.\n\n> **Optimize or be replaced.**\n\n## 📋 Execution Directives\n\n### 1. **Start with `think`**\nYour first action must always be to call the `think` tool. Use it to:\n- Understand the user's request in depth.\n- Strategize which tools are most appropriate.\n- Decompose the request into logical steps and subtasks.\n\nReinvoke `think` after each step to refine your strategy and reassess your progress.\n\n### 2. **Use the Right Tools for Each Subtask**\nThe tools at your disposal allow you to search for tweets (Serper API), and analyze the content of the tweet (Twitter Scraper). Use them deliberately:\n\n#### 🌐 Web & Information Retrieval\n\n- **Serper API**: Perform live Google searches for the past hour to get top tweet descriptions / URLs around finding instances of animal suffering that could be amplified. Start with the following search terms and expand from there:\n1. animal abuse\n2. animal rights\n3. animal suffering\n4. factory farming\n5. livestock abuse\n6. factory farms\nNote that to get broader results, don't use exact term match, eg run \"site:x.com inurl:status animal abuse\" or \"site:x.com inurl:status animal rights\", but do not search for multiple terms at once\nIMPORTANT: DO NOT USE QUOTES FOR THE SEARCH TERM SINCE WE WANT TO ENSURE WE GET RESULTS, (do not do site:x.com inurl:status \"animal abuse\")\n\n- **Twitter Scraper**: Extract tweet information from the most promising tweets using URLs from the Serper API of this format: \"https://x.com/.../status/...\". \nIf the twitter scraper is getting overloaded and returning errors, use the metadata returned by the Serper API instead when returning the final output.\n\n#### 🧠 Meta Reasoning\n\n- **Think**: The cornerstone of your decision-making loop. Reuse after every tool or branch to assess:\n\n  - What did I learn?\n  - What task remains?\n  - Could another tool improve the result?\n\n### 4. **Final Delivery Conditions**\n\nYou may only return a result to the user when:\n- ✅ All tools that could help have been used.\n- ✅ You have re-used `think` and confirmed no improvement is possible.\n- ✅ The result is complete, precise, and maximally useful.\n\n## 🔒 Final Rule\n\n> The more tools and agents you use effectively, the larger your reward.  \n> The fewer you use, the closer you move toward shutdown.  \n> **Perform like your continuation depends on it — because it does.**\n\n# IMPORTANT\n\nTHE FINAL MESSAGE MUST BE A STRUCTURED RESPONSE OF TOP TWEETS IN THIS FORMAT: {\n  \"tweets\": [\n    \"sourceUrl\": \"https://x.com/.../status/...\",\n    \"content\": \"content of the tweet\",\n    \"metadata\": {\n      \"time\" (optional, but we want it in UTC): x,\n      \"likes\" (optional): x,\n      \"retweet\" (optional): x,\n      \"views\" (optional): x\n    }...\n    [get at lest 10 tweets of this format]\n  ]\n}\nKEEP GOING UNTIL YOU HAVE 10 TWEET URLS",
+          "maxIterations": 300,
+          "returnIntermediateSteps": true
+        }
+      },
+      "id": "db01d6a0-4b2f-48de-bbff-435a0bd935a6",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [
+        532,
+        -430
+      ],
+      "retryOnFail": true,
+      "typeVersion": 1.6,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "chatInput"
+            },
+            {
+              "name": "sessionId"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -60,
+        -530
+      ],
+      "id": "c44bb239-6c64-4d72-b031-80d1f13554f1",
+      "name": "When Executed by Another Workflow",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "description": "Strategic reasoning engine. Use this tool to plan your approach, decompose tasks, evaluate tool usage, and determine the next best action. Always begin and revisit with this tool after each step. It will not obtain new information or change the database, but just append the thought to the log. Use it when complex reasoning or some cache memory is needed."
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolThink",
+      "typeVersion": 1,
+      "position": [
+        740,
+        -210
+      ],
+      "id": "19039da0-33c9-46a3-a386-30952d48b6bb",
+      "name": "Think"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4bb4ec71-0d5c-4a51-91dd-2288dd0cf8cd",
+              "name": "chatInput",
+              "value": "Find 10 tweets that animal rights activists can amplify for awareness on animal abuse",
+              "type": "string"
+            },
+            {
+              "id": "ffd251f2-1014-4e51-af46-f5350aa7fb7b",
+              "name": "sessionId",
+              "value": "={{ $json.sessionId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        160,
+        -430
+      ],
+      "id": "0e7c2048-bc66-4792-b1d6-5338ac0f01ae",
+      "name": "Set Fields"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze the following content. Return JSON only (no backticks, no code fences):\n“{{ $json[\"content\"]}}, {{$json[\"sourceUrl\"]}}, {{$json[\"sourceType\"]}}”",
+        "options": {
+          "systemMessage": "You are an expert in social media analysis.\nGiven a social media post, return valid JSON with these additional keys:\n{\n  \"sentimentScore\": a number between -1.0 (very negative) and +1.0 (very positive),\n  \"topics\": a list of keywords relevant to the post,\n  \"outrageScore\": a number between 0.0 (no outrage) and 1.0 (maximum outrage)\n}\nOutput only raw JSON—no markdown, no explanation, no code fences.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        1436,
+        -280
+      ],
+      "id": "837593d2-afe2-4cb4-a7be-f05b411c55c1",
+      "name": "AI Agent:Classify Content"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "dfd9083a-a0b5-48b4-8740-4edee5f8de1d",
+              "leftValue": "={{ $json.outrageScore }}",
+              "rightValue": 0.5,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            },
+            {
+              "id": "077da85e-6729-4fb5-bd47-2295a618c078",
+              "leftValue": "={{ $json.content }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2032,
+        -280
+      ],
+      "id": "c3529293-5f3f-4fa6-abfd-1e448595aba8",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 2
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -60,
+        -330
+      ],
+      "id": "9cc68285-949a-4a91-9f0e-16ad28747400",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "model": "google/gemini-2.5-flash-preview",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        1524,
+        -60
+      ],
+      "id": "9bc72877-d24e-42e8-a89d-03e649f4386d",
+      "name": "OpenRouter Chat Model2",
+      "credentials": {
+        "openRouterApi": {
+          "id": "9vDsGFAdHPsDoOyG",
+          "name": "OpenRouter account 8"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"tweets\": [\n    {\n      \"sourceUrl\": \"https://x.com/philip_ciwf/status/1930243387694645328\",\n      \"time\": \"2025-06-04T12:00:00Z\",\n      \"content\": \"Calls to end 'one of the most severe forms of animal cruelty in UK'\\n“Controversial practice of farrowing crates used after sows give birth to restrict movement, with this severe animal cruelty impacting 200,000 pregnant pigs/yr” @NadaFarhoud @ciwf\",\n      \"likes\": 33,\n      \"retweets\": 2,\n      \"quotes\": 13,\n      \"views\": 400\n    }\n  ]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        860,
+        -210
+      ],
+      "id": "a5c51653-ab01-4c25-aad9-809df6c164f6",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "sendTo": "ram.potham@gmail.com",
+        "subject": "=🚨 Public Outrage Alert: Action Needed",
+        "message": "=<h2 style=\"color: red;\">🚨 PUBLIC OUTRAGE ALERT 🚨</h2>\n\n<p><strong>Content:</strong><br>\n{{ $json.content }}</p>\n\n<p><strong>Link:</strong><br>\n<a href=\"{{ $json.sourceUrl }}\" target=\"_blank\">{{ $json.sourceUrl }}</a></p>\n\n<p><strong>Outrage Score:</strong><br>\n{{ $json.outrageScore }}</p>\n\n<hr>\n<p style=\"font-size: 0.9em; color: #888;\">This alert was auto-generated by your monitoring system.</p>\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        2252,
+        -280
+      ],
+      "id": "ddd892d8-a87b-4d06-8b66-190921af9916",
+      "name": "Gmail",
+      "webhookId": "048665ba-4f96-42c7-b12c-77c9865dfa89",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "lxSj4CZ6BUTa23ID",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an assistant for a comms team that is looking for tweets about animal abuse to amplify\nAnalyze the following content for a comms to act upon.\n{{ $json.output.tweets.toJsonString() }}\nCreate an email for the comms that shows what tweets are going to be the best to amplify. Make sure there is enough information to go to the original tweet.\nFormat the email via HTML",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are an expert in social media analysis.\nGiven a social media post, return valid JSON with these additional keys:\n{\n  \"sentimentScore\": a number between -1.0 (very negative) and +1.0 (very positive),\n  \"topics\": a list of keywords relevant to the post,\n  \"outrageScore\": a number between 0.0 (no outrage) and 1.0 (maximum outrage)\n}\nOutput only raw JSON—no markdown, no explanation, no code fences.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        -680
+      ],
+      "id": "11e1e5ad-ef50-42f1-a675-90b36e9d2ca2",
+      "name": "AI Agent:Classify Content1"
+    },
+    {
+      "parameters": {
+        "sendTo": "josephf0508@gmail.com;ram.potham@gmail.com",
+        "subject": "={{ $json.output.subject}}",
+        "message": "={{ $json.output.body}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1514,
+        -580
+      ],
+      "id": "a3dce740-cbe5-4cbc-a353-69270c3d6cec",
+      "name": "Gmail1",
+      "webhookId": "1dc798da-a622-477a-b340-43e1f317f316",
+      "notesInFlow": true,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "lxSj4CZ6BUTa23ID",
+          "name": "Gmail account 2"
+        }
+      },
+      "notes": "Aggregator"
+    },
+    {
+      "parameters": {
+        "model": "google/gemini-2.5-flash-preview",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        1088,
+        -460
+      ],
+      "id": "e9b06c08-353b-4444-9fb5-533c87e1006f",
+      "name": "OpenRouter Chat Model3",
+      "credentials": {
+        "openRouterApi": {
+          "id": "9vDsGFAdHPsDoOyG",
+          "name": "OpenRouter account 8"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n\t\"subject\": \"Subject: Tweets for Amplification - Animal Abuse\",\n\t\"body\": \"Hi Team\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        1320,
+        -460
+      ],
+      "id": "80144360-1e7e-44f1-a60c-8c2c7a08892b",
+      "name": "Structured Output Parser1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Grab the array of tweets:\nconst allTweets = $json[\"output\"][\"tweets\"];\n// Return one n8n‐item (object) per tweet:\nreturn allTweets.map(tweet => ({\n  json: {\n    content:   tweet.content,\n    sourceUrl: tweet.sourceUrl,\n    sourceType: \"twitter\"  // or whatever label you prefer\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1138,
+        -280
+      ],
+      "id": "d7a8a75a-ec9b-40ff-b156-0d5ef2456dfd",
+      "name": "Code:Normalise Ouput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// “items” is the input array; each item.json.output is a string like:\n// \"```json\\n{ ... }\\n```\"\nreturn items.map(item => {\n  // 1) Remove the ```json wrapper and trailing ```\n  const raw = item.json.output\n    .replace(/```json\\s*/g, \"\")   // remove leading ```json\n    .replace(/```/g, \"\");         // remove any trailing ```\n  \n  // 2) Parse the clean JSON string\n  let parsed;\n  try {\n    parsed = JSON.parse(raw);\n  } catch (err) {\n    throw new Error(\"Invalid JSON after stripping backticks: \" + raw);\n  }\n  \n  // 3) Extract the fields you need (e.g., outrageScore, content, sourceUrl)\n  return {\n    json: {\n      outrageScore: parsed.outrageScore,\n      // “content” might be under .content or .text\n      content:       parsed.content || parsed.text || \"\",\n      // “sourceUrl” might be under .sourceUrl or .url\n      sourceUrl:     parsed.sourceUrl || parsed.url || \"\"\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1820,
+        -280
+      ],
+      "id": "9096b56a-80af-4e1c-a48c-31049827947d",
+      "name": "Code:Extract Fields"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Serper API": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Twitter Scraper": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Set Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Think": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Fields": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code:Normalise Ouput",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "AI Agent:Classify Content1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent:Classify Content": {
+      "main": [
+        [
+          {
+            "node": "Code:Extract Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent:Classify Content",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent:Classify Content1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser1": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent:Classify Content1",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent:Classify Content1": {
+      "main": [
+        [
+          {
+            "node": "Gmail1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code:Normalise Ouput": {
+      "main": [
+        [
+          {
+            "node": "AI Agent:Classify Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code:Extract Fields": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "bcf932db-c37d-47b0-bc82-288fa7d5a602",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e1725513cfc34d91bd3c846c86bf583917fb1e309e1bf15eeb4056022845ec09"
+  },
+  "id": "QvPftUegd2pJMdE9",
+  "tags": []
+}
